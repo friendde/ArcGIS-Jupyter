@@ -5,6 +5,9 @@
 
 
 import arcpy
+import numpy as np
+import pandas as pd
+
 sourceStreets = r'C:\GISData\Data\Snapshot\mxBaseMap.geodatabase\main.Cartographic\main.Streets'
 destGDB = r'C:\Users\friendde\Documents\ArcGIS\Projects\NAStreets\NAStreets.gdb'
 stIntersection = r'C:\Users\friendde\Documents\ArcGIS\Projects\NAStreets\NAStreets.gdb\StreetIntersection'
@@ -44,11 +47,16 @@ print(f"number of intersections: {lastFeatSeq}")
 
 # In[14]:
 
-
-for i in range(1,lastFeatSeq,1):
+# TODO create list from column Feat_Seq instead of range()
+arr = arcpy.da.TableToNumpyArray(identEnds,'FEAT_SEQ')
+df = pd.DataFrame(arr)
+df.head()
+dfList = df['FEAT_SEQ'].tolist()
+#for i in range(1,lastFeatSeq,1):
+for featSeq in dfList
     FID = []
     streetIntersection = []
-    with arcpy.da.SearchCursor(identEnds,["IN_FID","FEAT_SEQ"],f"FEAT_SEQ = {i}") as sc:
+    with arcpy.da.SearchCursor(identEnds,["IN_FID","FEAT_SEQ"],f"FEAT_SEQ = {featSeq}") as sc:
         for fid in sc:
             FID.append(fid[0])
         for oid in FID:
@@ -56,15 +64,12 @@ for i in range(1,lastFeatSeq,1):
                 for st in stCur:
                     streetIntersection.append(st[1])
         # Convert list to set and then back to list to remove duplicate street label names
-        streetIntersect = list(set(streetIntersection))
+        streetIntersect.sort() = list(set(streetIntersection))
+        print(f"sorted list {streetIntersect} length {len(streetIntersect)}")
         # convert list to string
-        stringIntersect = ','.join(streetIntersect)
-        ic = arcpy.da.InsertCursor(stIntersection,["Street_Label","SHAPE@"])
+        stringIntersect = ' '.join(streetIntersect)
+        print(f"string list {stringIntersect}")
+        ic = arcpy.da.InsertCursor(stIntersection,["IntersectingStreets","SHAPE@"])
         row = [stringIntersect,st[2]]
+        ic.insertRow(row)
         del ic
-
-
-# insert shape
-# row = [((sv[1][0]))]
-# insert row
-# row = [stringIntersect,sv[1]]
