@@ -178,11 +178,11 @@ def getKWD(consumption):
 def calcKWD(consumption):
     if summerPeak: 
         print(f'Using Summer Peak')
-        sp = 13.9525*(consumption-3000)
+        sp = (13.95+0.0025*(consumption-3000))/1000
         return sp 
     if winterPeak:
         print(f'Using Winter Peak')
-        wp = 18.7027*(consumption-3000)
+        wp = (18.70+0.0027*(consumption-3000))/1000
         return wp
 def getCF(custCount):
     for key in sorted(cf.keys()):
