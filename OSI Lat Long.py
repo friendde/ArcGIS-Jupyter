@@ -2,30 +2,34 @@
 # coding: utf-8
 
 # # OSI Lat Long
-# ### This Notebook uses the XY of the point featureclass and adds Lat Long to each related row in a related table
+# ### This Notebook uses the XY of the point featureclass and adds Lat Long to each related row in a related table. The FeederID (aka Circuit Number) is also determined for Electric features.
 # A CSV file is generated that will be used to support a seperate project.
 # 
 # The second half of the Notebook explores the electric consumption data with a [SpatialDataFrame](https://esri.github.io/arcgis-python-api/apidoc/html/arcgis.features.toc.html?highlight=spatialdataframe#spatialdataframe) using the customers table modifed in the first half.
 
-# In[1]:
+# W/WW notes: needs GloabID in customer account tables
+# 
+# Run Feeder Manager First, then extract for OSI
+
+# In[ ]:
 
 
 import arcpy
-import numpy
+import numpy as np
 import pandas as pd
 
 
-# In[7]:
+# In[ ]:
 
 
-gdb = r"C:\Users\friendde\Documents\ArcGIS\Projects\OSILatLong\OSILatLong.gdb"
-
-#esvcPntSource = r"C:\GISData\Data\Snapshot\mxElectric.geodatabase\Electric\main.eServicePoint"
-#gsvcPntSource = r"C:\GISData\Data\Snapshot\mxGas.geodatabase\Gas\main.gMeterSet"
-#rsvcPntSource = r"C:\GISData\Data\Snapshot\WWW_Extract.gdb\Reclaimed\rServicePoint"
-#wsvcPntSource = r"C:\GISData\Data\Snapshot\WWW_Extract.gdb\Water\ServicePoint"
-#svcPntSourceList = [esvcPntSource,gsvcPntSource,rsvcPntSource,wsvcPntSource]
-#svcPntSourceList = [esvcPntSource]
+gdb = "C:/Users/friendde/Documents/ArcGIS/Projects/OSILatLong/OSILatLong.gdb"
+gdb_electric = "C:/Users/friendde/Documents/ArcGIS/Projects/OSILatLong/OSILatLong.gdb/Electric"
+osiExtract = "C:/Users/friendde/Documents/ArcGIS/Projects/OSILatLong/OSI_Electric_Extract.gdb"
+osiExtract_electric = "C:/Users/friendde/Documents/ArcGIS/Projects/OSILatLong/OSI_Electric_Extract.gdb/Electric"
+#omsRegion = r"C:\Users\friendde\Documents\ArcGIS\Projects\OSILatLong\OSILatLong.gdb\eRegion"
+#omsRegionSource = r"C:\GISData\Data\Snapshot\mxElectric.geodatabase\main.Electric\main.EDEngDistrict"
+omsRegion = "C:/Users/friendde/Documents/ArcGIS/Projects/OSILatLong/OSILatLong.gdb/EDEngDistrict"
+sourceGDBList = ["C:/arcdata/Gas_Extract.gdb","C:/arcdata/WWW_Extract.gdb/"]
 
 esvcPntDest = r"C:\Users\friendde\Documents\ArcGIS\Projects\OSILatLong\OSILatLong.gdb\eServicePoint"
 gsvcPntDest = r"C:\Users\friendde\Documents\ArcGIS\Projects\OSILatLong\OSILatLong.gdb\gMeterSet"
@@ -35,10 +39,10 @@ svcPntDestList = [esvcPntDest,gsvcPntDest,rsvcPntDest,wsvcPntDest]
 
 #svcPntDict = {esvcPntSource:esvcPntDest,gsvcPntSource:gsvcPntDest,rsvcPntSource:rsvcPntDest,wsvcPntSource:wsvcPntDest}
 
-ecustAcctSource = r"C:\GISData\Data\Snapshot\mxElectric.geodatabase\main.eCUSTOMERACCOUNT"
-gcustAcctSource = r"C:\GISData\Data\Snapshot\mxGas.geodatabase\main.gCUSTOMERACCOUNT"
-rcustAcctSource = r"C:\GISData\Data\Snapshot\WWW_Extract.gdb\rCustomerAccount"
-wcustAcctSource = r"C:\GISData\Data\Snapshot\WWW_Extract.gdb\wCustomerAccount"
+ecustAcctSource = "C:/Users/friendde/Documents/ArcGIS/Projects/OSILatLong/OSI_Electric_Extract.gdb/eCUSTOMERACCOUNT"
+gcustAcctSource = "C:/arcdata/Gas_Extract.gdb/gCUSTOMERACCOUNT"
+rcustAcctSource = "C:/arcdata/WWW_Extract.gdb/rCustomerAccount"
+wcustAcctSource = "C:/arcdata/WWW_Extract.gdb/wCustomerAccount"
 custAcctSourceList = [ecustAcctSource,gcustAcctSource,rcustAcctSource,wcustAcctSource]
 
 ecustAcctDest = r"C:\Users\friendde\Documents\ArcGIS\Projects\OSILatLong\OSILatLong.gdb\eCUSTOMERACCOUNT"
@@ -49,12 +53,27 @@ custAcctDestList = [ecustAcctDest,gcustAcctDest,rcustAcctDest,wcustAcctDest]
 
 custAcctDict = {ecustAcctSource:ecustAcctDest,gcustAcctSource:gcustAcctDest,rcustAcctSource:rcustAcctDest,wcustAcctSource:wcustAcctDest}
 
-svcPntDestFlds = ["OID@","GLOBALID","POINT_X","POINT_Y","PHASEDESIGNATION"]
-custAcctDestFlds = ["SERVICEPOINTOBJECTID","GLOBALID","POINT_X","POINT_Y","PHASEDESIGNATION","Utility"]
-custAcctOutFlds = ["OID@","SvcPntOID","INSTALL_NUM","POINT_X","POINT_Y","PHASEDESIGNATION"]
+electFields = ["PHASEDESIGNATION","FEEDERID","TRANSFORMERBANKOBJECTID","eTransformerBank_GLOBALID","RegionName"]
+svcPntDestFlds = ["OID@","GLOBALID","POINT_X","POINT_Y","PHASEDESIGNATION","FEEDERID","TRANSFORMERBANKOBJECTID","eTransformerBank_GLOBALID","RegionName"]
+custAcctDestFlds = ["SERVICEPOINTOBJECTID","GLOBALID","POINT_X","POINT_Y","PHASEDESIGNATION","FeederID","Utility","TRANSFORMERBANKOBJECTID","eTransformerBank_GLOBALID","RegionName"]
+custAcctOutFlds = ["OID@","SvcPntOID","INSTALL_NUM","POINT_X","POINT_Y","PHASEDESIGNATION","FeederID","TRANSFORMERBANKOBJECTID","eTransformerBank_GLOBALID","RegionName"]
 custAnalysis = ["SERVICEPOINTOBJECTID","INSTALL_NUM","POINT_X","POINT_Y","AVGCONSUMPTION","MAXCONSUMPTION"]
 custLocations = r"C:\Users\friendde\Documents\ArcGIS\Projects\OSILatLong\OSILatLong.gdb\CustomerLocations"
-custAcctFile = r'C:\Users\friendde\Documents\ArcGIS\Projects\OSILatLong\GISAll.csv'
+custAcctFile = r'C:\Users\friendde\Documents\ArcGIS\Projects\OSILatLong\GIS.csv'
+
+#feature classes that System Control does not want in OMS extract
+fcDelete = ['eAbandondedPriUGCond','eAbandonedSecUGCond','eCircuitMapGrid','eCircuitMapGrid2x3','eComments',
+           'eControlCommunication','eDownGuy','eLight','eSpanGuy','eHyperlink']
+elecGUIDS = ['']
+
+rc_list = []
+
+#regions = ['SE', 'SW Main St to 34 St', 'NW Main St to 34 St', 'SW west of I-75', 'SW 34 St to I-75', 'NW west of I-75', 'NW to 39 Ave, 34 Ave to I-75', 'NW north of 39 Ave', 'NE']
+regions = ['East','West']
+expression = "updateRegion(region)"
+codeblock = """
+def updateRegion(name):
+    return str(name)"""
 
 
 # #### Phase Translation between ArcFM and OSI
@@ -68,109 +87,81 @@ custAcctFile = r'C:\Users\friendde\Documents\ArcGIS\Projects\OSILatLong\GISAll.c
 # |   BC  |   3   |  23 |
 # |   ABC |   7   |  123|
 
-# In[3]:
+# In[ ]:
 
 
+# convert ArcFM Phase to OSI Phase
 def getPhaseDesignation(phaseDesignation):
-        if phaseDesignation is None:
-                ph = 0
-                return ph
-        if phaseDesignation == 1:
-                ph = 3
-                return ph
-        if phaseDesignation == 2:
-                ph = 2
-                return ph
-        if phaseDesignation == 3:
-                ph = 23
-                return ph
-        if phaseDesignation == 4:
-                ph = 1
-                return ph
-        if phaseDesignation == 5:
-                ph = 13
-                return ph
-        if phaseDesignation == 6:
-                ph = 12
-                return ph
-        if phaseDesignation == 7:
-                ph = 123
-                return ph
+    if phaseDesignation is None:
+        ph = 0
+        return ph
+    if phaseDesignation == 1:
+        ph = 3
+        return ph
+    if phaseDesignation == 2:
+        ph = 2
+        return ph
+    if phaseDesignation == 3:
+        ph = 23
+        return ph
+    if phaseDesignation == 4:
+        ph = 1
+        return ph
+    if phaseDesignation == 5:
+        ph = 13
+        return ph
+    if phaseDesignation == 6:
+        ph = 12
+        return ph
+    if phaseDesignation == 7:
+        ph = 123
+        return ph
+
+def gettxOID(txOID):
+    if txOID is None:
+        txOID = 0
+        return txOID
+    else:
+        return txOID
+
+def gettxGUID(txGUID):
+    print(f'in gettxGUID')
+    if txGUID is None:
+        print(f'txGUID is {txGUID}')
+        txGUID = 0
+        return txGUID
+    else:
+        print(f'txGUID is {txGUID}')
+        return txGUID
+
+def replaceChar(strReplace):
+    replaceList = [' ',',','-']
+    for r in replaceList:
+        if r in (strReplace):
+            strReplace = strReplace.replace(r,'')
+
+    return strReplace
 
 def listReplace(lst, _from, _to):
    return([_to if v == _from else v for v in lst])
 
 
-# In[4]:
+# In[ ]:
 
 
-arcpy.env.workspace = gdb
-arcpy.env.overwriteOutput = True
-arcpy.env.outputCoordinateSystem = arcpy.SpatialReference(4326)
+# convert ObjectID relationship to GlobalID relationship in Electric Feature Class
+# exclude from list
+#include = ['eTransformerBank_ServicePoint']
+arcpy.env.workspace = osiExtract
+rcList = [c.name for c in arcpy.Describe(osiExtract_electric).children if c.datatype == "RelationshipClass"]
+rcList
 
 
-# In[5]:
+# In[ ]:
 
 
-fdsList = arcpy.ListDatasets()
-for fds in fdsList:
-    print(fds)
-    arcpy.Delete_management(fds)
-tblList = arcpy.ListTables()
-for tbl in tblList:
-    print(tbl)
-    arcpy.Delete_management(tbl)
-fcsList = arcpy.ListFeatureClasses()
-for fcs in fcsList:
-    print(fcs)
-    arcpy.Delete_management(fcs)
-
-
-# 
-# for svcPntDest in svcPntDestList:
-#     if arcpy.Exists(svcPntDest):
-#         print(f'Found {svcPntDest}')
-#         arcpy.Delete_management(svcPntDest)
-
-# rc_list = [c.name for c in arcpy.Describe(workspace).children if c.datatype == "RelationshipClass"] 
-# 
-# FeatureClassToFeatureClass_conversion (in_features, out_path, out_name, {where_clause}, {field_mapping}, config_keyword)
-
-# In[6]:
-
-
-for k,v in custAcctDict.items():
-    print(f'Copying {k} to {v}')
-    arcpy.Copy_management(k,v)
-    if arcpy.Exists(v):
-        print(f'Copy Success {v}')
-        arcpy.AddField_management(v, "POINT_X", "DOUBLE")
-        arcpy.AddField_management(v, "POINT_Y", "DOUBLE")
-        arcpy.AddField_management(v, "PHASEDESIGNATION", "LONG")
-        arcpy.AddField_management(v, "SERVICEPOINTOBJECTID", "LONG")
-        arcpy.AddField_management(v, "Utility", "TEXT")
-    else:
-        print(f'Copy Failed! {v}')
-for fc in svcPntDestList:
-    if arcpy.Exists(fc):
-        print(f'Copy Success, adding XY to {fc}')
-        arcpy.AddXY_management(fc)
-        print(f'AddXY completed')
-        fldList = []
-        flds = arcpy.Describe(fc).fields
-        for fld in flds:
-            fldList.append(fld)
-        if "PHASEDESIGNATION" not in fldList:
-            print(f'Adding PhaseDesignation to {fc}')
-            arcpy.AddField_management(fc, "PHASEDESIGNATION", "LONG")
-            print(f'Add PhaseDesignation completed')
-
-
-# In[7]:
-
-
-rcList = [c.name for c in arcpy.Describe(gdb).children if c.datatype == "RelationshipClass"]
 for rc in rcList:
+    print(f'Migrating {rc}\n')    
     desc = arcpy.Describe(rc)
     print("%-25s %s" % ("Backward Path Label:", desc.backwardPathLabel))
     print("%-25s %s" % ("Cardinality:", desc.cardinality))
@@ -184,16 +175,225 @@ for rc in rcList:
     print("%-25s %s" % ("Notification Direction:", desc.notification))
     print("%-25s %s" % ("Origin Class Names:", desc.originClassNames))
     print("\n")
-
-
-# In[8]:
-
-
-for rc in rcList:
     arcpy.MigrateRelationshipClass_management(rc)
 
 
-# In[9]:
+# In[ ]:
+
+
+# convert ObjectID relationship to GlobalID relationship in root osiExtract
+# exclude from list
+exclude = ['CircuitBreaker_CircuitSource','eConduitBank_eConduitBankConfigDef','eSurfaceStructure__ATTACHREL_1',
+          'eSupportStructure__ATTACHREL_1','SuppStructure_ForeignAttach','gCustomeraccount_SAPInstallation',
+          'gGasValve_gValveInspection','gGasValve_gValveMaintenance','gEmergencyShutoff_gEMSValves',
+           'gAbandonedValve_gValveInspection','eCUSTOMERACCOUNT__ATTACHREL'
+          ]
+include = ['ServicePt_CustomerAcct']
+rcList = [c.name for c in arcpy.Describe(osiExtract).children if c.datatype == "RelationshipClass"]
+#rc_List = []
+for rc in rcList:
+    if rc in include:
+        #print(f'Appending {rc} to rc_list')
+        rc_list.append(rc)
+        print(f'Migrating {rc}\n')
+        desc = arcpy.Describe(rc)
+        print("%-25s %s" % ("Backward Path Label:", desc.backwardPathLabel))
+        print("%-25s %s" % ("Cardinality:", desc.cardinality))
+        print("%-25s %s" % ("Class key:", desc.classKey))
+        print("%-25s %s" % ("Destination Class Names:", desc.destinationClassNames))
+        print("%-25s %s" % ("Forward Path Label:", desc.forwardPathLabel)) 
+        print("%-25s %s" % ("Is Attributed:", desc.isAttributed))
+        print("%-25s %s" % ("Is Composite:", desc.isComposite)) 
+        print("%-25s %s" % ("Is Reflexive:", desc.isReflexive))
+        print("%-25s %s" % ("Key Type:", desc.keyType))
+        print("%-25s %s" % ("Notification Direction:", desc.notification))
+        print("%-25s %s" % ("Origin Class Names:", desc.originClassNames))
+        print("\n")
+        arcpy.MigrateRelationshipClass_management(rc)
+    else:
+        pass
+
+
+# In[ ]:
+
+
+# change wksp to gdb
+arcpy.env.workspace = gdb
+arcpy.env.overwriteOutput = True
+arcpy.env.outputCoordinateSystem = arcpy.SpatialReference(4326)
+
+
+# In[ ]:
+
+
+# delete all existing tables in workspace, new tables are created or copied in
+fdsList = arcpy.ListDatasets()
+for fds in fdsList:
+    print(f'Deleting {fds}')
+    arcpy.Delete_management(fds)
+tblList = arcpy.ListTables()
+for tbl in tblList:
+    print(f'Deleting {tbl}')
+    arcpy.Delete_management(tbl)
+fcsList = arcpy.ListFeatureClasses()
+for fcs in fcsList:
+    if fcs == 'EDEngDistrict':
+        pass
+    else:
+        print(f'Deleting {fcs}')
+        arcpy.Delete_management(fcs)
+
+
+# In[ ]:
+
+
+# delete specific tables System Control does not want in OMS extract
+arcpy.env.workspace = osiExtract
+
+datasets = arcpy.ListDatasets(feature_type='feature')
+datasets = [''] + datasets if datasets is not None else []
+
+for ds in datasets:
+    for fc in arcpy.ListFeatureClasses(feature_dataset=ds):
+        #print(f'found {fc}')
+        if fc in fcDelete:
+            print(f'Deleting {fc}')
+            arcpy.Delete_management(fc)
+
+
+# In[ ]:
+
+
+#check for GlobalID before migrating relationship classes
+for custAcctSource in custAcctSourceList:
+    fldList = [fld.name.upper() for fld in arcpy.Describe(custAcctSource).fields]
+    #print(fldList)
+    if "GLOBALID" not in fldList:
+        print(f'Adding GlobalID to {custAcctSource}')
+        arcpy.AddGlobalIDs_management(custAcctSource)
+
+
+# In[ ]:
+
+
+# convert ObjectID relationship to GlobalID relationship in root sourceGDBList
+# exclude from list
+exclude = ['CircuitBreaker_CircuitSource','eConduitBank_eConduitBankConfigDef','eSurfaceStructure__ATTACHREL_1',
+          'eSupportStructure__ATTACHREL_1','SuppStructure_ForeignAttach','gCustomeraccount_SAPInstallation',
+          'gGasValve_gValveInspection','gGasValve_gValveMaintenance','gEmergencyShutoff_gEMSValves',
+           'gAbandonedValve_gValveInspection','eCUSTOMERACCOUNT__ATTACHREL'
+          ]
+include = ['gMeterSet_gCustomerAccount','RSERVICEPOINT_CUSTACCT','WSERVICEPOINT_CUSTACCT']
+for source_gdb in sourceGDBList:
+    arcpy.env.workspace = source_gdb
+    rcList = [c.name for c in arcpy.Describe(source_gdb).children if c.datatype == "RelationshipClass"]
+    for rc in rcList:
+        if rc in include:
+            rc_list.append(rc)
+            print(f'Migrating {rc}\n')
+            desc = arcpy.Describe(rc)
+            print("%-25s %s" % ("Backward Path Label:", desc.backwardPathLabel))
+            print("%-25s %s" % ("Cardinality:", desc.cardinality))
+            print("%-25s %s" % ("Class key:", desc.classKey))
+            print("%-25s %s" % ("Destination Class Names:", desc.destinationClassNames))
+            print("%-25s %s" % ("Forward Path Label:", desc.forwardPathLabel)) 
+            print("%-25s %s" % ("Is Attributed:", desc.isAttributed))
+            print("%-25s %s" % ("Is Composite:", desc.isComposite)) 
+            print("%-25s %s" % ("Is Reflexive:", desc.isReflexive))
+            print("%-25s %s" % ("Key Type:", desc.keyType))
+            print("%-25s %s" % ("Notification Direction:", desc.notification))
+            print("%-25s %s" % ("Origin Class Names:", desc.originClassNames))
+            print("\n")
+            arcpy.MigrateRelationshipClass_management(rc)
+        else:
+            pass
+
+
+# In[ ]:
+
+
+# copy in custAcctDict customer tables into workspace
+# add fields not normaly in customer tables
+arcpy.env.workspace = gdb
+arcpy.env.overwriteOutput = True
+for k,v in custAcctDict.items():
+    print(f'Copying {k} to {v}')
+    arcpy.Copy_management(k,v)
+    if arcpy.Exists(v):
+        #print(f'Copy Success {v}')
+        #field_names = [f.name for f in arcpy.ListFields(v)]
+        arcpy.AddField_management(v, "POINT_X", "DOUBLE")
+        arcpy.AddField_management(v, "POINT_Y", "DOUBLE")
+        arcpy.AddField_management(v, "PHASEDESIGNATION", "LONG")
+        arcpy.AddField_management(v, "SERVICEPOINTOBJECTID", "LONG")
+        arcpy.AddField_management(v, "Utility", "TEXT")
+        arcpy.AddField_management(v, "FeederID", "TEXT")
+        arcpy.AddField_management(v, "TRANSFORMERBANKOBJECTID", "LONG")
+        arcpy.AddField_management(v, "eTransformerBank_GLOBALID", "GUID")
+        arcpy.AddField_management(v, "RegionName", "TEXT")
+    else:
+        print(f'Copy Failed! {v}')
+
+
+# In[ ]:
+
+
+#Add Responder Region Name to Service Points (electric only for now)
+arcpy.env.workspace = gdb
+arcpy.env.overwriteOutput = True
+try:
+    arcpy.AddField_management(esvcPntDest, "RegionName", "TEXT")
+    arcpy.MakeFeatureLayer_management(esvcPntDest,'eSvcPnt')
+    for region in regions:
+        with arcpy.da.SearchCursor(omsRegion,"DirName") as sc:
+            print(f"Current Region Name {region}")
+            #desc = arcpy.da.Describe(omsRegion)
+            #print(f"FIDSet {desc['FIDSet']}")
+            #regionName = replaceChar(region)
+            #print(f"New Region Name {regionName}")
+            arcpy.MakeFeatureLayer_management(omsRegion,region,f"DirName = '{region}'")
+            arcpy.CopyFeatures_management(region, gdb + f"/{region}")
+            if arcpy.Exists(gdb + f"/{region}"):
+                #print(f"found {regionName}")
+                arcpy.SelectLayerByLocation_management('eSvcPnt',"",region)
+                #result = arcpy.GetCount_management(gdb + "/" + regionName)
+                #print(result)
+                result = arcpy.GetCount_management('eSvcPnt')
+                print(f"{result} meters are within {region}")
+                #desc = arcpy.Describe('eSvcPnt')
+                #print(desc['FIDSet'])
+                #print(len(desc.FIDSet.split(";")))
+                if int(result.getOutput(0)) > 0:
+                    print(f'Adding {region} to {int(result.getOutput(0))} Service Points')
+                    arcpy.CalculateField_management('eSvcPnt',"RegionName",expression,"PYTHON",codeblock)
+except:
+    print(arcpy.GetMessages(2))
+    
+
+
+# In[ ]:
+
+
+# add XY coords and some electric fields to all service point features
+for fc in svcPntDestList:
+    if arcpy.Exists(fc):
+        print(f'Adding XY to {fc}')
+        arcpy.AddXY_management(fc)
+        for electField in electFields:
+            if len(arcpy.ListFields(fc, electField)):
+                print(f'{electField} exists in {fc}')
+                pass
+            else:                
+                print(f'Adding {electField} to {fc}')
+                if electField in ["PHASEDESIGNATION","TRANSFORMERBANKOBJECTID"]:
+                    arcpy.AddField_management(fc, electField, "LONG")
+                elif electField == "eTransformerBank_GLOBALID":
+                    arcpy.AddField_management(fc, electField, "GUID")
+                else:
+                    arcpy.AddField_management(fc, electField, "TEXT")
+
+
+# In[ ]:
 
 
 edit = arcpy.da.Editor(gdb)
@@ -201,44 +401,134 @@ edit.startEditing(False, False)
 edit.startOperation()
 
 
-# In[10]:
+# rc_list = []
+# arcpy.env.workspace = osiExtract
+# include = ['ServicePt_CustomerAcct']
+# rcList = [c.name for c in arcpy.Describe(osiExtract).children if c.datatype == "RelationshipClass"]
+# for rc in rcList:
+#     if rc in include:
+#         #print(f'Appending {rc} to rc_list')
+#         rc_list.append(rc)
+# 
+# include = ['gMeterSet_gCustomerAccount','RSERVICEPOINT_CUSTACCT','WSERVICEPOINT_CUSTACCT']
+# for source_gdb in sourceGDBList:
+#     arcpy.env.workspace = source_gdb
+#     rcList = [c.name for c in arcpy.Describe(source_gdb).children if c.datatype == "RelationshipClass"]
+#     for rc in rcList:
+#         if rc in include:
+#             rc_list.append(rc)
+# rc_list
+
+# In[ ]:
 
 
-for rc in rcList:
+arcpy.env.workspace = gdb
+exclude_list = ["SAP_INSTALLATION","eCircuitBreaker","eCabinetStructure","eSurfaceStructure", "eSupportStructure",
+                "gGasValve","gEmergencyShutoff","eCIRCUITSOURCE","eCUSTOMERACCOUNT__ATTACH",
+                "eSurfaceStructure__ATTACH_1","eFOREIGNATTACHMENT","GVALVEINSPECTION","GEMSVALVES"]
+for rc in rc_list:
     desc = arcpy.Describe(rc)
-    if desc.originClassNames[0] == "SAP_INSTALLATION":
+    if desc.originClassNames[0] in ["SAP_INSTALLATION","eCircuitBreaker","eCabinetStructure","eSurfaceStructure",
+                                    "eSupportStructure","gGasValve","gEmergencyShutoff"]:
         pass
-    elif desc.destinationClassNames[0] == "SAP_INSTALLATION":
+    elif desc.destinationClassNames[0] in ["SAP_INSTALLATION","eCIRCUITSOURCE","eCUSTOMERACCOUNT__ATTACH",
+                                           "eSurfaceStructure__ATTACH_1","eFOREIGNATTACHMENT","GVALVEINSPECTION","GEMSVALVES"]:
         pass
     else:
         custAcctFlds = []
         custAcctFlds = listReplace(custAcctDestFlds,"GLOBALID",f"{desc.originClassNames[0]}_GLOBALID")
         with arcpy.da.SearchCursor(desc.originClassNames[0],svcPntDestFlds) as svcpnts:
+#["OID@","GLOBALID","POINT_X","POINT_Y","PHASEDESIGNATION","FEEDERID","TRANSFORMERBANKOBJECTID","eTransformerBank_GLOBALID","RegionName"]
             print(f"Searching {desc.originClassNames[0]} and updating {desc.destinationClassNames[0]}")
             for svcpnt in svcpnts:
                 whereClause = f"{desc.originClassNames[0]}_GLOBALID = '{svcpnt[1]}'"
-                with arcpy.da.UpdateCursor(desc.destinationClassNames[0],custAcctFlds,whereClause) as uc:
+                with arcpy.da.UpdateCursor(desc.destinationClassNames[0],custAcctDestFlds,whereClause) as uc:
+#["SERVICEPOINTOBJECTID","GLOBALID","POINT_X","POINT_Y","PHASEDESIGNATION","FeederID","Utility","TRANSFORMERBANKOBJECTID","eTransformerBank_GLOBALID","RegionName"]
+                    print(f"Updating: {desc.destinationClassNames[0]}")
                     for row in uc:
-                        row[0] = svcpnt[0]
-                        row[2] = svcpnt[2]
-                        row[3] = svcpnt[3]
-                        row[4] = getPhaseDesignation(svcpnt[4])
-                        row[5] = desc.destinationClassNames[0][:1]
+                        row[0] = svcpnt[0] #SncPntOID
+                        #row[1] = svcpnt[1] #GlobalID
+                        row[2] = svcpnt[2] #Point_X
+                        row[3] = svcpnt[3] #Point_Y
+                        row[4] = getPhaseDesignation(svcpnt[4]) #Phase
+                        row[5] = svcpnt[5] #FeederID
+                        row[6] = desc.destinationClassNames[0][:1] #Utility from CustomerAccount table prefix letter
+                        #row[7] = gettxOID(svcpnt[7])
+                        row[8] = gettxGUID(svcpnt[7]) #eTx_GlobalID
+                        row[9] = svcpnt[8] #RegionName
                         uc.updateRow(row)
 
 
-# In[11]:
+# In[ ]:
 
 
 edit.stopOperation()
 edit.stopEditing(True)
 
 
-# In[13]:
+# In[ ]:
 
 
-arcpy.CreateTable_management(gdb,custLocations,ecustAcctDest)
-arcpy.Append_management (custAcctDestList,custLocations,"NO_TEST")
+arcpy.Delete_management(custLocations)
+
+
+# In[ ]:
+
+
+arcpy.CreateTable_management(gdb,"CustomerLocations",ecustAcctDest)
+
+
+# In[ ]:
+
+
+#arcpy.TruncateTable_management(custLocations)
+
+
+# In[ ]:
+
+
+arcpy.Append_management(custAcctDestList,custLocations,"NO_TEST")
+
+
+# In[ ]:
+
+
+expression = "setFeeder(!FeederID!)"
+codeblock = """
+def setFeeder(feeder):
+    if feeder is None:
+        return 0
+    else:
+        return feeder"""
+arcpy.CalculateField_management(custLocations,"FeederId",expression,"PYTHON3",codeblock)
+
+
+# In[ ]:
+
+
+expression = "setUnknown(!RegionName!)"
+codeblock = """
+def setUnknown(r):
+    if r is None:
+        return "Not Set"
+    elif r == 0:
+        return "Not Set"
+    else:
+        return r"""
+arcpy.CalculateField_management(custLocations,"RegionName",expression,"PYTHON3",codeblock)
+
+
+# In[ ]:
+
+
+expression = "setPhase(!PhaseDesignation!)"
+codeblock = """
+def setPhase(phase):
+    if phase is None:
+        return 0
+    else:
+        return phase"""
+arcpy.CalculateField_management(custLocations,"PhaseDesignation",expression,"PYTHON3",codeblock)
 
 
 # ### Use numpy and pandas to export to CSV
@@ -246,35 +536,145 @@ arcpy.Append_management (custAcctDestList,custLocations,"NO_TEST")
 # Use arcpy [```TableToNumPyArray()```](http://pro.arcgis.com/en/pro-app/arcpy/data-access/tabletonumpyarray.htm)
 # See also [Working with numpy in ArcGIS](http://pro.arcgis.com/en/pro-app/arcpy/get-started/working-with-numpy-in-arcgis.htm)
 
-# In[8]:
-
-
-nparr = arcpy.da.TableToNumPyArray(custLocations,custAcctOutFlds,skip_nulls=True)
-#nparr = arcpy.da.TableToNumPyArray(custAcctDest,custAcctOutFlds,null_value=-9999)
-pdarr = pd.DataFrame(nparr)
-pdarr.to_csv(custAcctFile,header=False, index=False)
-
-
-# TODO - write file to \\gruadmin.gru.com\fs\Groups\OMS Replacement Project\Documents for OSII\Customer and Premise Files
+# TODO - write file to
+# \\gruomsdpre04 C:\customer_premise_osi_oms
+# \\gruomsdpre05 C:\customer_premise_osi_oms
+# \\gruomsdqae06 C:\customer_premise_osi_oms
+# \\gruomsdpra14 C:\customer_premise_osi_oms
+# \\gruomsppre12 C:\customer_premise_osi_oms
+# 
 
 # Ready new numpy array for consumption analysis
 
-# In[9]:
+# remove empty line at end of CSV
+
+# In[ ]:
 
 
-nparr = arcpy.da.TableToNumPyArray(custLocations,["SvcPntOID","POINT_X","POINT_Y","AVGCONSUMPTION","MAXCONSUMPTION","Utility"],skip_nulls=True)
+#nparr = arcpy.da.TableToNumPyArray(custLocations,["ServicePointObjectID","POINT_X","POINT_Y","AVGCONSUMPTION","MAXCONSUMPTION","Utility"],skip_nulls=True)
 
 
-# In[14]:
+# In[ ]:
+
+
+nparr = arcpy.da.TableToNumPyArray(custLocations,["ObjectID","INSTALL_NUM","POINT_X","POINT_Y","PHASEDESIGNATION","FeederID","Utility","eTransformerBank_GLOBALID","RegionName"])
+
+
+# In[ ]:
 
 
 df = pd.DataFrame(nparr)
-df.head(1000)
+
+
+# In[ ]:
+
+
+df.head()
+
+
+# In[ ]:
+
+
+df.tail()
+
+
+# Show only rows with a series filter
+
+# In[ ]:
+
+
+df.loc[(df["Utility"]=="g"), ["ObjectID","INSTALL_NUM","POINT_X","POINT_Y","PHASEDESIGNATION","FeederID","Utility","eTransformerBank_GLOBALID","RegionName"]]
+
+
+# In[ ]:
+
+
+df.ObjectID
+
+
+# In[ ]:
+
+
+df = df.astype({'ObjectID':str}, copy=False)
+
+
+# In[ ]:
+
+
+df.ObjectID
+
+
+# In[ ]:
+
+
+df.ObjectID = np.where(df.Utility != 'e', df.Utility + df.ObjectID,df.ObjectID)
+
+
+# In[ ]:
+
+
+df.head()
+
+
+# In[ ]:
+
+
+df.tail()
+
+
+# In[ ]:
+
+
+df.loc[(df.Utility == 'e'), ["ObjectID","INSTALL_NUM","POINT_X","POINT_Y","PHASEDESIGNATION","FeederID","Utility","eTransformerBank_GLOBALID","RegionName"]]
+
+
+# In[ ]:
+
+
+#df = df.astype({'INSTALL_NUM':str}, copy=True)
+df2 = df.astype(str, copy=True)
+df2.INSTALL_NUM
+
+
+# In[ ]:
+
+
+df.drop_duplicates(subset='INSTALL_NUM', keep='first', inplace=True)
+
+
+# In[ ]:
+
+
+df.groupby('INSTALL_NUM').filter(lambda x: len(x) > 1)
+
+
+# In[ ]:
+
+
+df.groupby(['INSTALL_NUM']).size().reset_index(name='count')
+
+
+# In[ ]:
+
+
+df.drop(['Utility'], axis=1, inplace=True)
+
+
+# In[ ]:
+
+
+df.tail()
+
+
+# In[ ]:
+
+
+df.to_csv(custAcctFile,header=False, index=True)
 
 
 # [```gis.features.SpatialDataFrame()```](https://esri.github.io/arcgis-python-api/apidoc/html/arcgis.features.toc.html?highlight=spatialdataframe#arcgis.features.SpatialDataFrame.from_xy)
 
-# In[11]:
+# In[ ]:
 
 
 from arcgis.features import SpatialDataFrame
@@ -283,7 +683,7 @@ from getpass import getpass
 from IPython.display import display
 
 
-# In[12]:
+# In[ ]:
 
 
 sdf = SpatialDataFrame.from_xy(df,"POINT_X","POINT_Y")
@@ -300,7 +700,7 @@ gis = GIS(arcpy.GetActivePortalURL(), username=input("Enter User Name "), passwo
 #m = gis.content.search(query,itemType,sortField,sortOrder,maxItems)
 
 
-# In[13]:
+# In[ ]:
 
 
 consumptionLyr = gis.content.import_data(sdf)
@@ -310,6 +710,12 @@ consumptionLyr = gis.content.import_data(sdf)
 
 
 m = gis.map('Gainesville,FL')
+
+
+# In[ ]:
+
+
+m
 
 
 # In[ ]:
