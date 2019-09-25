@@ -1,27 +1,24 @@
-
-# coding: utf-8
-
+# To add a new cell, type '#%%'
+# To add a new markdown cell, type '#%% [markdown]'
+#%% [markdown]
 # # OSI Lat Long
 # ### This Notebook uses the XY of the point featureclass and adds Lat Long to each related row in a related table. The FeederID (aka Circuit Number) is also determined for Electric features.
 # A CSV file is generated that will be used to support a seperate project.
 # 
 # The second half of the Notebook explores the electric consumption data with a [SpatialDataFrame](https://esri.github.io/arcgis-python-api/apidoc/html/arcgis.features.toc.html?highlight=spatialdataframe#spatialdataframe) using the customers table modifed in the first half.
-
+#%% [markdown]
 # W/WW notes: needs GloabID in customer account tables
 # 
 # Run Feeder Manager First, then extract for OSI
 
-# In[ ]:
-
-
+#%%
 import arcpy
 import numpy as np
 import pandas as pd
+#test commit
 
 
-# In[ ]:
-
-
+#%%
 gdb = "C:/Users/friendde/Documents/ArcGIS/Projects/OSILatLong/OSILatLong.gdb"
 gdb_electric = "C:/Users/friendde/Documents/ArcGIS/Projects/OSILatLong/OSILatLong.gdb/Electric"
 osiExtract = "C:/Users/friendde/Documents/ArcGIS/Projects/OSILatLong/OSI_Electric_Extract.gdb"
@@ -75,7 +72,7 @@ codeblock = """
 def updateRegion(name):
     return str(name)"""
 
-
+#%% [markdown]
 # #### Phase Translation between ArcFM and OSI
 # | Phase | ArcFM | OSI |
 # |-------|-------|-----|
@@ -87,9 +84,7 @@ def updateRegion(name):
 # |   BC  |   3   |  23 |
 # |   ABC |   7   |  123|
 
-# In[ ]:
-
-
+#%%
 # convert ArcFM Phase to OSI Phase
 def getPhaseDesignation(phaseDesignation):
     if phaseDesignation is None:
@@ -146,9 +141,7 @@ def listReplace(lst, _from, _to):
    return([_to if v == _from else v for v in lst])
 
 
-# In[ ]:
-
-
+#%%
 # convert ObjectID relationship to GlobalID relationship in Electric Feature Class
 # exclude from list
 #include = ['eTransformerBank_ServicePoint']
@@ -157,9 +150,7 @@ rcList = [c.name for c in arcpy.Describe(osiExtract_electric).children if c.data
 rcList
 
 
-# In[ ]:
-
-
+#%%
 for rc in rcList:
     print(f'Migrating {rc}\n')    
     desc = arcpy.Describe(rc)
@@ -178,9 +169,7 @@ for rc in rcList:
     arcpy.MigrateRelationshipClass_management(rc)
 
 
-# In[ ]:
-
-
+#%%
 # convert ObjectID relationship to GlobalID relationship in root osiExtract
 # exclude from list
 exclude = ['CircuitBreaker_CircuitSource','eConduitBank_eConduitBankConfigDef','eSurfaceStructure__ATTACHREL_1',
@@ -214,18 +203,14 @@ for rc in rcList:
         pass
 
 
-# In[ ]:
-
-
+#%%
 # change wksp to gdb
 arcpy.env.workspace = gdb
 arcpy.env.overwriteOutput = True
 arcpy.env.outputCoordinateSystem = arcpy.SpatialReference(4326)
 
 
-# In[ ]:
-
-
+#%%
 # delete all existing tables in workspace, new tables are created or copied in
 fdsList = arcpy.ListDatasets()
 for fds in fdsList:
@@ -244,9 +229,7 @@ for fcs in fcsList:
         arcpy.Delete_management(fcs)
 
 
-# In[ ]:
-
-
+#%%
 # delete specific tables System Control does not want in OMS extract
 arcpy.env.workspace = osiExtract
 
@@ -261,9 +244,7 @@ for ds in datasets:
             arcpy.Delete_management(fc)
 
 
-# In[ ]:
-
-
+#%%
 #check for GlobalID before migrating relationship classes
 for custAcctSource in custAcctSourceList:
     fldList = [fld.name.upper() for fld in arcpy.Describe(custAcctSource).fields]
@@ -273,9 +254,7 @@ for custAcctSource in custAcctSourceList:
         arcpy.AddGlobalIDs_management(custAcctSource)
 
 
-# In[ ]:
-
-
+#%%
 # convert ObjectID relationship to GlobalID relationship in root sourceGDBList
 # exclude from list
 exclude = ['CircuitBreaker_CircuitSource','eConduitBank_eConduitBankConfigDef','eSurfaceStructure__ATTACHREL_1',
@@ -309,9 +288,7 @@ for source_gdb in sourceGDBList:
             pass
 
 
-# In[ ]:
-
-
+#%%
 # copy in custAcctDict customer tables into workspace
 # add fields not normaly in customer tables
 arcpy.env.workspace = gdb
@@ -335,9 +312,7 @@ for k,v in custAcctDict.items():
         print(f'Copy Failed! {v}')
 
 
-# In[ ]:
-
-
+#%%
 #Add Responder Region Name to Service Points (electric only for now)
 arcpy.env.workspace = gdb
 arcpy.env.overwriteOutput = True
@@ -371,9 +346,7 @@ except:
     
 
 
-# In[ ]:
-
-
+#%%
 # add XY coords and some electric fields to all service point features
 for fc in svcPntDestList:
     if arcpy.Exists(fc):
@@ -393,14 +366,12 @@ for fc in svcPntDestList:
                     arcpy.AddField_management(fc, electField, "TEXT")
 
 
-# In[ ]:
-
-
+#%%
 edit = arcpy.da.Editor(gdb)
 edit.startEditing(False, False)
 edit.startOperation()
 
-
+#%% [markdown]
 # rc_list = []
 # arcpy.env.workspace = osiExtract
 # include = ['ServicePt_CustomerAcct']
@@ -419,9 +390,7 @@ edit.startOperation()
 #             rc_list.append(rc)
 # rc_list
 
-# In[ ]:
-
-
+#%%
 arcpy.env.workspace = gdb
 exclude_list = ["SAP_INSTALLATION","eCircuitBreaker","eCabinetStructure","eSurfaceStructure", "eSupportStructure",
                 "gGasValve","gEmergencyShutoff","eCIRCUITSOURCE","eCUSTOMERACCOUNT__ATTACH",
@@ -459,40 +428,28 @@ for rc in rc_list:
                         uc.updateRow(row)
 
 
-# In[ ]:
-
-
+#%%
 edit.stopOperation()
 edit.stopEditing(True)
 
 
-# In[ ]:
-
-
+#%%
 arcpy.Delete_management(custLocations)
 
 
-# In[ ]:
-
-
+#%%
 arcpy.CreateTable_management(gdb,"CustomerLocations",ecustAcctDest)
 
 
-# In[ ]:
-
-
+#%%
 #arcpy.TruncateTable_management(custLocations)
 
 
-# In[ ]:
-
-
+#%%
 arcpy.Append_management(custAcctDestList,custLocations,"NO_TEST")
 
 
-# In[ ]:
-
-
+#%%
 expression = "setFeeder(!FeederID!)"
 codeblock = """
 def setFeeder(feeder):
@@ -503,9 +460,7 @@ def setFeeder(feeder):
 arcpy.CalculateField_management(custLocations,"FeederId",expression,"PYTHON3",codeblock)
 
 
-# In[ ]:
-
-
+#%%
 expression = "setUnknown(!RegionName!)"
 codeblock = """
 def setUnknown(r):
@@ -518,9 +473,7 @@ def setUnknown(r):
 arcpy.CalculateField_management(custLocations,"RegionName",expression,"PYTHON3",codeblock)
 
 
-# In[ ]:
-
-
+#%%
 expression = "setPhase(!PhaseDesignation!)"
 codeblock = """
 def setPhase(phase):
@@ -530,12 +483,12 @@ def setPhase(phase):
         return phase"""
 arcpy.CalculateField_management(custLocations,"PhaseDesignation",expression,"PYTHON3",codeblock)
 
-
+#%% [markdown]
 # ### Use numpy and pandas to export to CSV
 # 
 # Use arcpy [```TableToNumPyArray()```](http://pro.arcgis.com/en/pro-app/arcpy/data-access/tabletonumpyarray.htm)
 # See also [Working with numpy in ArcGIS](http://pro.arcgis.com/en/pro-app/arcpy/get-started/working-with-numpy-in-arcgis.htm)
-
+#%% [markdown]
 # TODO - write file to
 # \\gruomsdpre04 C:\customer_premise_osi_oms
 # \\gruomsdpre05 C:\customer_premise_osi_oms
@@ -543,149 +496,105 @@ arcpy.CalculateField_management(custLocations,"PhaseDesignation",expression,"PYT
 # \\gruomsdpra14 C:\customer_premise_osi_oms
 # \\gruomsppre12 C:\customer_premise_osi_oms
 # 
-
+#%% [markdown]
 # Ready new numpy array for consumption analysis
-
+#%% [markdown]
 # remove empty line at end of CSV
 
-# In[ ]:
-
-
+#%%
 #nparr = arcpy.da.TableToNumPyArray(custLocations,["ServicePointObjectID","POINT_X","POINT_Y","AVGCONSUMPTION","MAXCONSUMPTION","Utility"],skip_nulls=True)
 
 
-# In[ ]:
-
-
+#%%
 nparr = arcpy.da.TableToNumPyArray(custLocations,["ObjectID","INSTALL_NUM","POINT_X","POINT_Y","PHASEDESIGNATION","FeederID","Utility","eTransformerBank_GLOBALID","RegionName"])
 
 
-# In[ ]:
-
-
+#%%
 df = pd.DataFrame(nparr)
 
 
-# In[ ]:
-
-
+#%%
 df.head()
 
 
-# In[ ]:
-
-
+#%%
 df.tail()
 
-
+#%% [markdown]
 # Show only rows with a series filter
 
-# In[ ]:
-
-
+#%%
 df.loc[(df["Utility"]=="g"), ["ObjectID","INSTALL_NUM","POINT_X","POINT_Y","PHASEDESIGNATION","FeederID","Utility","eTransformerBank_GLOBALID","RegionName"]]
 
 
-# In[ ]:
-
-
+#%%
 df.ObjectID
 
 
-# In[ ]:
-
-
+#%%
 df = df.astype({'ObjectID':str}, copy=False)
 
 
-# In[ ]:
-
-
+#%%
 df.ObjectID
 
 
-# In[ ]:
-
-
+#%%
 df.ObjectID = np.where(df.Utility != 'e', df.Utility + df.ObjectID,df.ObjectID)
 
 
-# In[ ]:
-
-
+#%%
 df.head()
 
 
-# In[ ]:
-
-
+#%%
 df.tail()
 
 
-# In[ ]:
-
-
+#%%
 df.loc[(df.Utility == 'e'), ["ObjectID","INSTALL_NUM","POINT_X","POINT_Y","PHASEDESIGNATION","FeederID","Utility","eTransformerBank_GLOBALID","RegionName"]]
 
 
-# In[ ]:
-
-
+#%%
 #df = df.astype({'INSTALL_NUM':str}, copy=True)
 df2 = df.astype(str, copy=True)
 df2.INSTALL_NUM
 
 
-# In[ ]:
-
-
+#%%
 df.drop_duplicates(subset='INSTALL_NUM', keep='first', inplace=True)
 
 
-# In[ ]:
-
-
+#%%
 df.groupby('INSTALL_NUM').filter(lambda x: len(x) > 1)
 
 
-# In[ ]:
-
-
+#%%
 df.groupby(['INSTALL_NUM']).size().reset_index(name='count')
 
 
-# In[ ]:
-
-
+#%%
 df.drop(['Utility'], axis=1, inplace=True)
 
 
-# In[ ]:
-
-
+#%%
 df.tail()
 
 
-# In[ ]:
-
-
+#%%
 df.to_csv(custAcctFile,header=False, index=True)
 
-
+#%% [markdown]
 # [```gis.features.SpatialDataFrame()```](https://esri.github.io/arcgis-python-api/apidoc/html/arcgis.features.toc.html?highlight=spatialdataframe#arcgis.features.SpatialDataFrame.from_xy)
 
-# In[ ]:
-
-
+#%%
 from arcgis.features import SpatialDataFrame
 from arcgis.gis import GIS
 from getpass import getpass
 from IPython.display import display
 
 
-# In[ ]:
-
-
+#%%
 sdf = SpatialDataFrame.from_xy(df,"POINT_X","POINT_Y")
 gis = GIS(arcpy.GetActivePortalURL(), username=input("Enter User Name "), password=(getpass()))
 #gis = GIS()
@@ -700,38 +609,27 @@ gis = GIS(arcpy.GetActivePortalURL(), username=input("Enter User Name "), passwo
 #m = gis.content.search(query,itemType,sortField,sortOrder,maxItems)
 
 
-# In[ ]:
-
-
+#%%
 consumptionLyr = gis.content.import_data(sdf)
 
 
-# In[ ]:
-
-
+#%%
 m = gis.map('Gainesville,FL')
 
 
-# In[ ]:
-
-
+#%%
 m
 
 
-# In[ ]:
-
-
+#%%
 m.add_layer(sdf,options={"renderer":"ClassedSizeRenderer","field_name":"MAXCONSUMPTION"})
 
 
-# In[ ]:
-
-
+#%%
 m.add_layer(consumptionLyr,options={"renderer":"ClassedSizeRenderer","field_name":"MAXCONSUMPTION"})
 
 
-# In[ ]:
-
-
+#%%
 m
+
 
